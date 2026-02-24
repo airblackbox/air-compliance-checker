@@ -72,7 +72,7 @@ class TestArticle10:
 
     def test_has_three_checks(self, empty_scan):
         result = check_article_10(empty_scan)
-        assert len(result.checks) == 3
+        assert len(result.checks) == 5
 
     def test_vault_without_patterns_warns(self):
         scan = ScanResult(has_data_vault=True)
@@ -93,7 +93,7 @@ class TestArticle11:
 
     def test_has_three_checks(self, empty_scan):
         result = check_article_11(empty_scan)
-        assert len(result.checks) == 3
+        assert len(result.checks) == 4
 
 
 class TestArticle12:
@@ -107,7 +107,7 @@ class TestArticle12:
 
     def test_has_four_checks(self, empty_scan):
         result = check_article_12(empty_scan)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 5
 
     def test_tamper_evident_is_critical(self, empty_scan):
         """HMAC chain is the killer feature — should fail without it."""
@@ -142,7 +142,7 @@ class TestArticle15:
 
     def test_has_four_checks(self, empty_scan):
         result = check_article_15(empty_scan)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 6
 
     def test_defense_in_depth_counts_layers(self):
         # 2 layers = WARN
