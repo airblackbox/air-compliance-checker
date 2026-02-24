@@ -79,7 +79,27 @@ def check_article_10(scan: ScanResult) -> ArticleResult:
         evidence=f"Vault patterns: {', '.join(scan.vault_patterns)}" if scan.vault_patterns else ("DataVault defaults active" if scan.has_data_vault else None),
     ))
 
-    # Check 3: Prompt logging for bias analysis
+    # Check 3: RAG provenance tracking
+    art.checks.append(CheckResult(
+        name="rag_provenance",
+        status=Status.PASS if scan.has_provenance_tracker else Status.SKIP,
+        description="Knowledge base documents tracked with SHA-256 provenance hashing",
+        requirement="Data governance for training and knowledge base data",
+        recommendation=None if scan.has_provenance_tracker else "Add ProvenanceTracker from air-rag-trust to hash and track all KB documents",
+        evidence="ProvenanceTracker detected" if scan.has_provenance_tracker else None,
+    ))
+
+    # Check 4: RAG write gating
+    art.checks.append(CheckResult(
+        name="rag_write_gate",
+        status=Status.PASS if scan.has_write_gate else Status.SKIP,
+        description="Knowledge base write operations gated by policy (source allowlists, content checks)",
+        requirement="Appropriate data governance measures for data quality",
+        recommendation=None if scan.has_write_gate else "Add WriteGate from air-rag-trust to control what enters the knowledge base",
+        evidence="WriteGate detected" if scan.has_write_gate else None,
+    ))
+
+    # Check 5: Prompt logging for bias analysis
     art.checks.append(CheckResult(
         name="prompt_logging",
         status=Status.PASS if scan.has_audit_ledger and scan.has_trust_handler else Status.WARN,
@@ -126,6 +146,17 @@ def check_article_11(scan: ScanResult) -> ArticleResult:
         evidence="HMAC signing detected" if scan.audit_hmac_enabled else None,
     ))
 
+    # Check 4: RAG knowledge base documentation
+    has_rag_docs = scan.has_provenance_tracker and scan.has_rag_trust
+    art.checks.append(CheckResult(
+        name="rag_documentation",
+        status=Status.PASS if has_rag_docs else Status.SKIP,
+        description="Knowledge base contents documented with provenance chain and export capability",
+        requirement="Technical documentation of data sources and processing",
+        recommendation=None if has_rag_docs else "Add air-rag-trust ProvenanceTracker for KB document registry with export_provenance()",
+        evidence="ProvenanceTracker + AirRagTrust detected" if has_rag_docs else None,
+    ))
+
     return art
 
 
@@ -165,7 +196,18 @@ def check_article_12(scan: ScanResult) -> ArticleResult:
         evidence="InjectionDetector + AuditLedger active" if has_injection_log else None,
     ))
 
-    # Check 4: Tamper-evident chain (Article 12 killer feature)
+    # Check 4: RAG write event chain
+    has_rag_chain = scan.has_provenance_tracker and scan.has_write_gate
+    art.checks.append(CheckResult(
+        name="rag_write_chain",
+        status=Status.PASS if has_rag_chain else Status.SKIP,
+        description="Knowledge base writes recorded with HMAC-SHA256 tamper-evident chain",
+        requirement="Record-keeping for data entering the AI system",
+        recommendation=None if has_rag_chain else "Add air-rag-trust for write event logging with provenance chains",
+        evidence="ProvenanceTracker + WriteGate active" if has_rag_chain else None,
+    ))
+
+    # Check 5: Tamper-evident chain (Article 12 killer feature)
     art.checks.append(CheckResult(
         name="tamper_evident_chain",
         status=Status.PASS if scan.audit_hmac_enabled else Status.FAIL,
@@ -267,7 +309,43 @@ def check_article_15(scan: ScanResult) -> ArticleResult:
         evidence=f"{layers}/4 layers: " + ", ".join(scan.air_components_detected) if layers > 0 else None,
     ))
 
-    # Check 4: Configurable security
+    # Check 4: RAG poisoning defense
+    art.checks.append(CheckResult(
+        name="rag_poisoning_defense",
+        status=Status.PASS if scan.has_write_gate else Status.SKIP,
+        description="Knowledge base protected against poisoning via write policy enforcement",
+        requirement="Resilient against attempts to alter use by manipulating training/KB data",
+        recommendation=None if scan.has_write_gate else "Add WriteGate from air-rag-trust to block unauthorized KB writes, malicious patterns, and untrusted sources",
+        evidence="WriteGate detected" if scan.has_write_gate else None,
+    ))
+
+    # Check 5: RAG drift detection
+    art.checks.append(CheckResult(
+        name="rag_drift_detection",
+        status=Status.PASS if scan.has_drift_detector else Status.SKIP,
+        description="Knowledge base monitored for retrieval drift (new sources, trust shifts, volume spikes)",
+        requirement="Continuous monitoring for cybersecurity threats",
+        recommendation=None if scan.has_drift_detector else "Add DriftDetector from air-rag-trust for real-time KB anomaly detection",
+        evidence="DriftDetector detected" if scan.has_drift_detector else None,
+    ))
+
+    # Check 6: Multi-layer RAG defense
+    rag_layers = sum([
+        scan.has_provenance_tracker,
+        scan.has_write_gate,
+        scan.has_drift_detector,
+    ])
+    if scan.has_rag_trust:
+        art.checks.append(CheckResult(
+            name="rag_defense_depth",
+            status=Status.PASS if rag_layers >= 2 else Status.WARN,
+            description=f"RAG defense in depth: {rag_layers}/3 layers active (provenance, write gate, drift)",
+            requirement="Technically redundant solutions for knowledge base safety",
+            recommendation=None if rag_layers >= 2 else f"Enable more RAG layers ({3 - rag_layers} missing). Need: ProvenanceTracker, WriteGate, DriftDetector",
+            evidence=f"{rag_layers}/3 RAG layers active" if rag_layers > 0 else None,
+        ))
+
+    # Check 7: Configurable security
     art.checks.append(CheckResult(
         name="configurable_security",
         status=Status.PASS if scan.has_trust_config else Status.WARN,

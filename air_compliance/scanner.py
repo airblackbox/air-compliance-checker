@@ -19,6 +19,7 @@ class ScanResult:
     has_autogen: bool = False
     has_typescript: bool = False
     has_gateway: bool = False
+    has_rag_trust: bool = False
 
     # AIR components detected
     has_audit_ledger: bool = False
@@ -27,6 +28,9 @@ class ScanResult:
     has_injection_detector: bool = False
     has_trust_handler: bool = False
     has_trust_config: bool = False
+    has_provenance_tracker: bool = False
+    has_write_gate: bool = False
+    has_drift_detector: bool = False
 
     # Configuration details
     audit_hmac_enabled: bool = False
@@ -35,6 +39,8 @@ class ScanResult:
     consent_tool_levels: dict[str, str] = field(default_factory=dict)
     injection_patterns_count: int = 0
     injection_block_enabled: bool = False
+    rag_write_policy_enabled: bool = False
+    rag_drift_detection_enabled: bool = False
 
     # Files scanned
     python_files: list[str] = field(default_factory=list)
@@ -56,6 +62,8 @@ class ScanResult:
             found.append("TypeScript")
         if self.has_gateway:
             found.append("Gateway")
+        if self.has_rag_trust:
+            found.append("RAG Trust")
         return found
 
     @property
@@ -73,6 +81,12 @@ class ScanResult:
             found.append("TrustHandler")
         if self.has_trust_config:
             found.append("TrustConfig")
+        if self.has_provenance_tracker:
+            found.append("ProvenanceTracker")
+        if self.has_write_gate:
+            found.append("WriteGate")
+        if self.has_drift_detector:
+            found.append("DriftDetector")
         return found
 
 
@@ -83,6 +97,7 @@ IMPORT_PATTERNS = {
     "air_crewai_trust": "has_crewai",
     "air_openai_agents_trust": "has_openai_agents",
     "air_autogen_trust": "has_autogen",
+    "air_rag_trust": "has_rag_trust",
     # Framework imports
     "langchain": "has_langchain",
     "crewai": "has_crewai",
@@ -97,11 +112,17 @@ COMPONENT_PATTERNS = {
     r"InjectionDetector": "has_injection_detector",
     r"AirTrustCallbackHandler|AirTrustHook|activate_trust": "has_trust_handler",
     r"AirTrustConfig": "has_trust_config",
+    r"ProvenanceTracker": "has_provenance_tracker",
+    r"WriteGate|WritePolicy": "has_write_gate",
+    r"DriftDetector|DriftConfig": "has_drift_detector",
+    r"AirRagTrust": "has_rag_trust",
 }
 
 CONFIG_PATTERNS = {
     r"hmac|secret.*key|audit_secret": "audit_hmac_enabled",
     r"block.*=.*True|block_mode|injection.*block": "injection_block_enabled",
+    r"WritePolicy|allowed_sources|blocked_sources|write.*gate": "rag_write_policy_enabled",
+    r"DriftConfig|drift.*detect|baseline_window|untrusted_ratio": "rag_drift_detection_enabled",
 }
 
 
@@ -202,8 +223,14 @@ class ProjectScanner:
             result.has_langchain = True
         if "air-crewai-trust" in content or "air_crewai_trust" in content:
             result.has_crewai = True
+        if "air-openai-agents-trust" in content or "air_openai_agents_trust" in content:
+            result.has_openai_agents = True
+        if "air-autogen-trust" in content or "air_autogen_trust" in content:
+            result.has_autogen = True
         if "openclaw-air-trust" in content:
             result.has_typescript = True
+        if "air-rag-trust" in content or "air_rag_trust" in content:
+            result.has_rag_trust = True
 
     def _scan_yaml_config(self, content: str, result: ScanResult) -> None:
         """Extract config details from YAML/TOML files."""

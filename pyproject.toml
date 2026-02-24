@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "air-compliance"
-version = "0.1.0"
+version = "0.2.0"
 description = "EU AI Act compliance checker for AI agent projects — scans for AIR Blackbox components and reports coverage gaps"
 readme = "README.md"
 license = "Apache-2.0"

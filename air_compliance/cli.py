@@ -191,7 +191,7 @@ def main() -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="air-compliance 0.1.0",
+        version="air-compliance 0.2.0",
     )
 
     args = parser.parse_args()
