@@ -1,5 +1,7 @@
-"""Tests for the project scanner (tool-agnostic)."""
+"""Tests for the project scanner."""
 
+import os
+import tempfile
 import pytest
 from air_compliance.scanner import ProjectScanner, ScanResult
 
@@ -14,20 +16,23 @@ class TestScanResult:
     def test_empty_result(self):
         result = ScanResult()
         assert result.frameworks_detected == []
-        assert result.has_logging is False
-        assert result.has_testing is False
+        assert result.air_components_detected == []
 
-    def test_evidence_tracking(self):
-        result = ScanResult()
-        result.add_evidence("has_logging", "Python logging")
-        result.add_evidence("has_logging", "Logger instance")
-        assert len(result.evidence["has_logging"]) == 2
+    def test_framework_detection(self):
+        result = ScanResult(has_langchain=True, has_crewai=True)
+        assert "LangChain" in result.frameworks_detected
+        assert "CrewAI" in result.frameworks_detected
+        assert len(result.frameworks_detected) == 2
 
-    def test_no_duplicate_evidence(self):
-        result = ScanResult()
-        result.add_evidence("has_logging", "Python logging")
-        result.add_evidence("has_logging", "Python logging")
-        assert len(result.evidence["has_logging"]) == 1
+    def test_component_detection(self):
+        result = ScanResult(
+            has_audit_ledger=True,
+            has_data_vault=True,
+            has_consent_gate=True,
+        )
+        assert "AuditLedger" in result.air_components_detected
+        assert "DataVault" in result.air_components_detected
+        assert "ConsentGate" in result.air_components_detected
 
 
 class TestProjectScanner:
@@ -39,187 +44,132 @@ class TestProjectScanner:
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
         assert result.frameworks_detected == []
-        assert result.has_logging is False
+        assert result.air_components_detected == []
 
-    def test_detects_logging(self, temp_project):
+    def test_detects_langchain_import(self, temp_project):
         py_file = temp_project / "app.py"
-        py_file.write_text("import logging\nlogger = logging.getLogger(__name__)\nlogger.info('hello')\n")
+        py_file.write_text("from air_langchain_trust import AirTrustCallbackHandler\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_logging is True
+        assert result.has_langchain is True
+        assert result.has_trust_handler is True
 
-    def test_detects_structlog(self, temp_project):
+    def test_detects_crewai_import(self, temp_project):
         py_file = temp_project / "app.py"
-        py_file.write_text("import structlog\nlogger = structlog.get_logger()\n")
+        py_file.write_text("from air_crewai_trust import activate_trust\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_logging is True
-        assert result.has_structured_logging is True
+        assert result.has_crewai is True
+        assert result.has_trust_handler is True
 
-    def test_detects_pydantic(self, temp_project):
-        py_file = temp_project / "models.py"
-        py_file.write_text("from pydantic import BaseModel\n\nclass User(BaseModel):\n    name: str\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_input_validation is True
-        assert result.has_data_schemas is True
-
-    def test_detects_error_handling(self, temp_project):
+    def test_detects_all_components(self, temp_project):
         py_file = temp_project / "app.py"
-        py_file.write_text("try:\n    do_something()\nexcept ValueError as e:\n    handle(e)\n")
+        py_file.write_text(
+            "from air_langchain_trust import AirTrustCallbackHandler\n"
+            "from air_langchain_trust import AuditLedger, DataVault\n"
+            "from air_langchain_trust import ConsentGate, InjectionDetector\n"
+            "from air_langchain_trust import AirTrustConfig\n"
+        )
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_error_handling is True
+        assert result.has_audit_ledger is True
+        assert result.has_data_vault is True
+        assert result.has_consent_gate is True
+        assert result.has_injection_detector is True
+        assert result.has_trust_handler is True
+        assert result.has_trust_config is True
 
-    def test_detects_tests(self, temp_project):
-        tests_dir = temp_project / "tests"
-        tests_dir.mkdir()
-        test_file = tests_dir / "test_app.py"
-        test_file.write_text("def test_something():\n    assert True\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_testing is True
-
-    def test_detects_type_hints(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("def greet(name: str) -> str:\n    return f'Hello {name}'\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_type_hints is True
-
-    def test_detects_framework_langchain(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("from langchain import LLMChain\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert "LangChain" in result.frameworks_detected
-
-    def test_detects_framework_fastapi(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("from fastapi import FastAPI\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert "FastAPI" in result.frameworks_detected
-
-    def test_detects_access_control(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("@login_required\ndef admin_view():\n    pass\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_access_control is True
-
-    def test_detects_timestamps(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("from datetime import datetime\ncreated_at = datetime.utcnow()\n")
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_timestamps is True
-
-    def test_detects_dependency_pinning(self, temp_project):
+    def test_detects_requirements(self, temp_project):
         req = temp_project / "requirements.txt"
-        req.write_text("requests==2.31.0\npydantic==2.5.0\n")
+        req.write_text("air-langchain-trust>=0.1.0\nlangchain-core>=0.3.0\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_dependency_pinning is True
+        assert result.has_langchain is True
 
-    def test_detects_override_mechanism(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text("enabled = True\ndry_run = False\n")
+    def test_detects_docker_gateway(self, temp_project):
+        dc = temp_project / "docker-compose.yml"
+        dc.write_text("image: ghcr.io/airblackbox/gateway:main\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_override_mechanism is True
+        assert result.has_gateway is True
+
+    def test_detects_typescript(self, temp_project):
+        pkg = temp_project / "package.json"
+        pkg.write_text('{"dependencies": {"openclaw-air-trust": "^0.1.0"}}\n')
+        scanner = ProjectScanner(str(temp_project))
+        result = scanner.scan()
+        assert result.has_typescript is True
+
+    def test_detects_hmac_config(self, temp_project):
+        cfg = temp_project / "config.yaml"
+        cfg.write_text("audit:\n  secret_key: my-hmac-secret\n  enabled: true\n")
+        scanner = ProjectScanner(str(temp_project))
+        result = scanner.scan()
+        assert result.audit_hmac_enabled is True
 
     def test_ignores_git_directory(self, temp_project):
         git_dir = temp_project / ".git"
         git_dir.mkdir()
         py_file = git_dir / "hooks.py"
-        py_file.write_text("import logging\n")
+        py_file.write_text("from langchain import something\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_logging is False
+        assert result.has_langchain is False
 
     def test_ignores_node_modules(self, temp_project):
         nm = temp_project / "node_modules" / "pkg"
         nm.mkdir(parents=True)
         py_file = nm / "script.py"
-        py_file.write_text("from pydantic import BaseModel\n")
+        py_file.write_text("from crewai import Agent\n")
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
-        assert result.has_input_validation is False
-
-    def test_docstring_coverage(self, temp_project):
-        py_file = temp_project / "app.py"
-        py_file.write_text(
-            '"""Module doc."""\n'
-            'def foo():\n    """Foo doc."""\n    pass\n'
-            'def bar():\n    """Bar doc."""\n    pass\n'
-            'def baz():\n    pass\n'
-        )
-        scanner = ProjectScanner(str(temp_project))
-        result = scanner.scan()
-        assert result.has_docstrings is True
+        assert result.has_crewai is False
 
 
 class TestFullCompliantProject:
-    """Test scanning a project with standard tools (no AIR Blackbox)."""
+    """Test scanning a fully compliant project."""
 
-    def test_standard_tools_project(self, temp_project):
-        # Main app with standard Python tools
+    def test_full_project(self, temp_project):
+        # Main app with all components
         app = temp_project / "app.py"
         app.write_text(
-            '"""Main application module."""\n'
-            'import logging\n'
-            'import structlog\n'
-            'from datetime import datetime\n'
-            'from pydantic import BaseModel\n\n'
-            'logger = structlog.get_logger()\n\n'
-            'class UserInput(BaseModel):\n'
-            '    """Validates user input."""\n'
-            '    query: str\n'
-            '    risk_level: str = "LOW"\n\n'
-            'def process(input_data: UserInput) -> str:\n'
-            '    """Process user input with risk classification."""\n'
-            '    created_at = datetime.utcnow()\n'
-            '    logger.info("processing", risk_level=input_data.risk_level, timestamp=created_at.isoformat())\n'
-            '    try:\n'
-            '        result = do_ai_stuff(input_data)\n'
-            '        logger.info("audit_event", action="process", result="success")\n'
-            '        return result\n'
-            '    except ValueError as e:\n'
-            '        logger.error("processing_failed", error=str(e))\n'
-            '        raise\n\n'
-            'enabled = True\n'
-            'dry_run = False\n\n'
-            '@login_required\n'
-            'def admin_action():\n'
-            '    """Admin-only action with access control."""\n'
-            '    pass\n'
+            "from air_langchain_trust import AirTrustCallbackHandler, AirTrustConfig\n"
+            "from air_langchain_trust.audit_ledger import AuditLedger\n"
+            "from air_langchain_trust.data_vault import DataVault\n"
+            "from air_langchain_trust.consent_gate import ConsentGate\n"
+            "from air_langchain_trust.injection_detector import InjectionDetector\n"
+            "\n"
+            "config = AirTrustConfig(\n"
+            "    audit_secret='my-secret',\n"
+            "    injection_block=True,\n"
+            ")\n"
+            "handler = AirTrustCallbackHandler(config=config)\n"
         )
 
-        # Requirements with pinned versions
-        req = temp_project / "requirements.txt"
-        req.write_text("pydantic==2.5.0\nstructlog==24.1.0\nfastapi==0.108.0\n")
-
-        # Test file
-        tests_dir = temp_project / "tests"
-        tests_dir.mkdir()
-        test_file = tests_dir / "test_app.py"
-        test_file.write_text("def test_process():\n    assert True\n")
+        # Config file
+        cfg = temp_project / "air-config.yaml"
+        cfg.write_text(
+            "audit:\n"
+            "  enabled: true\n"
+            "  secret_key: ${AUDIT_SECRET}\n"
+            "vault:\n"
+            "  patterns: ssn, credit_card, email, api_key\n"
+            "consent:\n"
+            "  consent_mode: block_high_and_critical\n"
+            "injection:\n"
+            "  block: True\n"
+        )
 
         scanner = ProjectScanner(str(temp_project))
         result = scanner.scan()
 
-        # All major checks should pass with standard tools
-        assert result.has_logging is True
-        assert result.has_structured_logging is True
-        assert result.has_input_validation is True
-        assert result.has_data_schemas is True
-        assert result.has_error_handling is True
-        assert result.has_testing is True
-        assert result.has_type_hints is True
-        assert result.has_timestamps is True
-        assert result.has_docstrings is True
-        assert result.has_dependency_pinning is True
-        assert result.has_access_control is True
-        assert result.has_override_mechanism is True
-        assert result.has_risk_classification is True
+        assert result.has_langchain is True
+        assert result.has_audit_ledger is True
+        assert result.has_data_vault is True
+        assert result.has_consent_gate is True
+        assert result.has_injection_detector is True
+        assert result.has_trust_handler is True
+        assert result.has_trust_config is True
+        assert result.audit_hmac_enabled is True
+        assert result.injection_block_enabled is True
+        assert len(result.vault_patterns) > 0

@@ -1,30 +1,38 @@
-# EU AI Act Compliance Scanner
+# air-compliance
 
-**Tool-agnostic** compliance scanner for Python AI projects. Checks whether your project follows EU AI Act technical requirements — regardless of what libraries you use.
+**EU AI Act compliance checker for AI agent projects.** Scans your codebase for AIR Blackbox components and reports which EU AI Act articles you're covered on — and which have gaps.
 
-## What it checks
+```
+$ air-compliance /path/to/my-agent-project
 
-The scanner evaluates your project against 6 EU AI Act articles that apply to high-risk AI systems:
+============================================================
+  AIR Blackbox — EU AI Act Compliance Report
+============================================================
 
-| Article | What it looks for |
-|---------|------------------|
-| **Art. 9** — Risk Management | Risk classification, access control, risk decision logging |
-| **Art. 10** — Data Governance | Input validation (Pydantic, marshmallow, etc.), PII handling, data schemas |
-| **Art. 11** — Technical Docs | Logging (structlog, loguru, etc.), docstrings, type hints |
-| **Art. 12** — Record-Keeping | Structured logging, audit trails, timestamps, log integrity |
-| **Art. 14** — Human Oversight | Review flows, override/kill switch, notifications |
-| **Art. 15** — Robustness | Input sanitization, error handling, tests, rate limiting |
+  Project: /path/to/my-agent-project
+  Frameworks: LangChain
 
-## Tool-agnostic
+  Overall: PASS  |  Coverage: 100%  |  22 pass / 0 warn / 0 fail
 
-This scanner does **not** require any specific library. A project using standard Python tools passes just fine:
+  Article 9 — Risk Management System  [PASS]
 
-- **Logging**: `logging`, `structlog`, `loguru` — any works
-- **Validation**: `pydantic`, `marshmallow`, `cerberus`, `jsonschema`, `dataclasses` — any works
-- **Testing**: `pytest`, `unittest` — any works
-- **PII handling**: `presidio`, `scrubadub`, regex-based redaction — any works
-- **Error handling**: standard `try/except` — works
-- **Rate limiting**: `slowapi`, `flask-limiter`, custom implementations — any works
+    ● Tool calls classified by risk level
+    ● Risk levels configurable per tool
+    ● Risk-based blocking policy enforced at runtime
+    ● Risk decisions logged to audit trail
+
+  Article 10 — Data and Data Governance  [PASS]
+  ...
+
+  Article 12 — Record-Keeping  [PASS]
+
+    ● Events automatically recorded over system lifetime
+    ● Consent decisions logged with tool name, risk level, allow/deny
+    ● Injection detection results logged with pattern and match
+    ● HMAC-SHA256 chained logs — mathematically verifiable integrity
+
+  EU AI Act high-risk enforcement: August 2, 2026
+```
 
 ## Install
 
@@ -36,86 +44,79 @@ pip install air-compliance
 
 ```bash
 # Scan current directory
-air-compliance .
+air-compliance
 
-# Verbose output with evidence
-air-compliance . --verbose
+# Scan a specific project
+air-compliance /path/to/project
+
+# Verbose output (shows requirements and evidence)
+air-compliance --verbose
 
 # JSON output (for CI pipelines)
-air-compliance . --json
+air-compliance --json
 
-# Fail CI if any check fails
-air-compliance . --strict
+# Strict mode (exit code 1 on any failure — use in CI)
+air-compliance --strict
 ```
 
-### Python API
+## What It Checks
 
-```python
-from air_compliance import ProjectScanner
-from air_compliance.checkers import ALL_CHECKERS
-from air_compliance.models import ComplianceReport
+The checker scans your project for AIR Blackbox components and maps them to 6 EU AI Act articles:
 
-scanner = ProjectScanner("/path/to/project")
-scan_result = scanner.scan()
+| Article | Requirement | What It Looks For |
+|---|---|---|
+| **Art. 9** | Risk Management | ConsentGate, risk levels, blocking policies, audit trail |
+| **Art. 10** | Data Governance | DataVault, PII patterns, prompt logging |
+| **Art. 11** | Technical Documentation | AuditLedger, call graph capture, HMAC integrity |
+| **Art. 12** | Record-Keeping | Auto recording, consent logging, injection logging, tamper-evident chain |
+| **Art. 14** | Human Oversight | Audit trail, consent gate, intervention capability, interpretable output |
+| **Art. 15** | Robustness & Security | InjectionDetector, blocking, defense-in-depth layers, configurable security |
 
-report = ComplianceReport(project_path="/path/to/project")
-for checker in ALL_CHECKERS:
-    report.articles.append(checker(scan_result))
+## CI Integration
 
-print(f"Coverage: {report.coverage_pct:.0f}%")
-print(f"Pass: {report.total_pass}, Fail: {report.total_fail}")
-```
-
-### GitHub Actions
+Add to your CI pipeline to block deploys that aren't compliant:
 
 ```yaml
-- name: EU AI Act Compliance Check
-  run: |
-    pip install air-compliance
-    air-compliance . --strict
+# .github/workflows/compliance.yml
+name: EU AI Act Compliance
+on: [push, pull_request]
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install air-compliance
+      - run: air-compliance --strict
 ```
 
-## Example output
+## JSON Output
 
-```
-============================================================
-  EU AI Act Compliance Scanner
-============================================================
-
-  Project: /home/user/my-ai-project
-  Frameworks: LangChain, FastAPI
-
-  Overall: PASS  |  Coverage: 85%  |  17 pass / 3 warn / 2 fail
-
-  Article 9 — Risk Management System  [PASS]
-
-    ● Risk levels defined for AI operations
-    ● Access control on AI-driven actions
-    ● Risk decisions logged for review
-
-  Article 10 — Data and Data Governance  [PASS]
-
-    ● Input data validated with schemas or type checking
-    ● Personal/sensitive data identified and handled
-    ● Data structures defined with typed schemas
-    ○ Data sources tracked with provenance information
-      → Track data sources and lineage (e.g., source URLs, document IDs, content hashes)
-
-  This scanner is tool-agnostic — use any libraries you prefer.
+```bash
+air-compliance --json | jq '.articles[] | {article, status}'
 ```
 
-## v1.0.0 — Tool-agnostic rewrite
+```json
+{"article": "Article 9", "status": "pass"}
+{"article": "Article 10", "status": "pass"}
+{"article": "Article 11", "status": "warn"}
+{"article": "Article 12", "status": "fail"}
+{"article": "Article 14", "status": "pass"}
+{"article": "Article 15", "status": "pass"}
+```
 
-Previous versions checked for specific packages. v1.0.0 is a complete rewrite that checks for **real compliance patterns** — logging, validation, testing, error handling, documentation — using any tools you prefer. A project using Pydantic + structlog + pytest passes just as well as one using any other stack.
+## AIR Blackbox Ecosystem
 
-## EU AI Act timeline
-
-- **August 2, 2026**: High-risk AI system requirements become enforceable
-- **Articles 9-15**: Technical requirements for high-risk AI systems
-
-## Contributing
-
-Issues and PRs welcome. This is an open-source project under the Apache 2.0 license.
+| Package | Framework | Install |
+|---|---|---|
+| `air-langchain-trust` | LangChain / LangGraph | `pip install air-langchain-trust` |
+| `air-crewai-trust` | CrewAI | `pip install air-crewai-trust` |
+| `openclaw-air-trust` | TypeScript / Node.js | `npm install openclaw-air-trust` |
+| Gateway | Any HTTP agent | `docker pull ghcr.io/airblackbox/gateway:main` |
+| **`air-compliance`** | **Compliance checker** | **`pip install air-compliance`** |
 
 ## License
 
