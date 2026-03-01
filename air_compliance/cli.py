@@ -1,4 +1,4 @@
-"""CLI interface for the AIR Compliance Checker."""
+"""CLI interface for the EU AI Act Compliance Scanner."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def print_report(report: ComplianceReport, verbose: bool = False) -> None:
     """Print a formatted compliance report to stdout."""
     print()
     print(f"{BOLD}{'=' * 60}{RESET}")
-    print(f"{BOLD}  AIR Blackbox — EU AI Act Compliance Report{RESET}")
+    print(f"{BOLD}  EU AI Act Compliance Scanner{RESET}")
     print(f"{BOLD}{'=' * 60}{RESET}")
     print()
     print(f"  Project: {report.project_path}")
@@ -68,7 +68,7 @@ def print_report(report: ComplianceReport, verbose: bool = False) -> None:
     if report.frameworks_detected:
         print(f"  Frameworks: {', '.join(report.frameworks_detected)}")
     else:
-        print(f"  Frameworks: {YELLOW}None detected{RESET}")
+        print(f"  Frameworks: {DIM}None detected{RESET}")
 
     # Overall status bar
     overall = report.overall_status
@@ -102,18 +102,18 @@ def print_report(report: ComplianceReport, verbose: bool = False) -> None:
     print(f"{BOLD}{'─' * 60}{RESET}")
     if report.overall_status == Status.PASS:
         print(f"  {GREEN}{BOLD}All compliance checks passed.{RESET}")
-        print(f"  Your agent stack covers EU AI Act Articles 9, 10, 11, 12, 14, 15.")
+        print(f"  Your project covers EU AI Act Articles 9, 10, 11, 12, 14, 15.")
     elif report.overall_status == Status.WARN:
         print(f"  {YELLOW}{BOLD}Compliance checks passed with warnings.{RESET}")
         print(f"  {report.total_warn} items need attention for full compliance.")
     else:
         print(f"  {RED}{BOLD}{report.total_fail} compliance gaps detected.{RESET}")
-        print(f"  Fix the FAIL items above to achieve EU AI Act compliance.")
+        print(f"  Address the FAIL items above to improve EU AI Act readiness.")
         print(f"  Run with --verbose for detailed requirements and evidence.")
 
     print()
     print(f"  {DIM}EU AI Act high-risk enforcement: August 2, 2026{RESET}")
-    print(f"  {DIM}Full mapping: https://github.com/airblackbox/air-platform/blob/main/docs/eu-ai-act-compliance.md{RESET}")
+    print(f"  {DIM}This scanner is tool-agnostic — use any libraries you prefer.{RESET}")
     print()
 
     if report.scan_errors:
@@ -164,7 +164,7 @@ def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="air-compliance",
-        description="AIR Blackbox EU AI Act Compliance Checker — scan your AI agent project for compliance gaps",
+        description="EU AI Act Compliance Scanner — check your Python AI project for compliance gaps (tool-agnostic)",
     )
     parser.add_argument(
         "path",
@@ -191,7 +191,7 @@ def main() -> int:
     parser.add_argument(
         "--version",
         action="version",
-        version="air-compliance 0.2.0",
+        version="air-compliance 1.0.0",
     )
 
     args = parser.parse_args()

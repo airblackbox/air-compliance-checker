@@ -1,6 +1,6 @@
-"""AIR Compliance Checker — EU AI Act compliance scanner for AI agent projects."""
+"""EU AI Act Compliance Scanner — tool-agnostic compliance checker for Python AI projects."""
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 
 from air_compliance.models import ComplianceReport, ArticleResult, CheckResult, Status
 from air_compliance.scanner import ProjectScanner

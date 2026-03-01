@@ -1,4 +1,4 @@
-"""Tests for article-specific compliance checkers."""
+"""Tests for article-specific compliance checkers (tool-agnostic)."""
 
 import pytest
 from air_compliance.models import Status
@@ -21,18 +21,39 @@ def empty_scan():
 
 @pytest.fixture
 def full_scan():
+    """A project using standard Python tools — fully compliant."""
     return ScanResult(
-        has_langchain=True,
-        has_audit_ledger=True,
-        has_data_vault=True,
-        has_consent_gate=True,
-        has_injection_detector=True,
-        has_trust_handler=True,
-        has_trust_config=True,
-        audit_hmac_enabled=True,
-        injection_block_enabled=True,
-        consent_mode="block_high_and_critical",
-        vault_patterns=["ssn", "credit_card", "email"],
+        # Article 9
+        has_risk_classification=True,
+        has_risk_config=True,
+        has_access_control=True,
+        has_risk_audit=True,
+        # Article 10
+        has_input_validation=True,
+        has_pii_handling=True,
+        has_data_schemas=True,
+        has_data_provenance=True,
+        # Article 11
+        has_logging=True,
+        has_docstrings=True,
+        has_type_hints=True,
+        has_api_docs=True,
+        # Article 12
+        has_structured_logging=True,
+        has_audit_trail=True,
+        has_timestamps=True,
+        has_log_integrity=True,
+        # Article 14
+        has_human_review=True,
+        has_override_mechanism=True,
+        has_explainability=True,
+        has_notification=True,
+        # Article 15
+        has_input_sanitization=True,
+        has_error_handling=True,
+        has_testing=True,
+        has_rate_limiting=True,
+        has_dependency_pinning=True,
     )
 
 
@@ -40,25 +61,23 @@ class TestArticle9:
     def test_empty_project_fails(self, empty_scan):
         result = check_article_9(empty_scan)
         assert result.status == Status.FAIL
-        assert result.fail_count >= 2
 
     def test_full_project_passes(self, full_scan):
         result = check_article_9(full_scan)
         assert result.status == Status.PASS
         assert result.fail_count == 0
 
-    def test_has_four_checks(self, empty_scan):
+    def test_has_three_checks(self, empty_scan):
         result = check_article_9(empty_scan)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 3
 
-    def test_partial_consent_gate_only(self):
-        scan = ScanResult(has_consent_gate=True)
-        result = check_article_9(scan)
-        # consent_gate passes risk_classification and blocking_policy
-        # but risk_config warns and risk_audit_trail fails
-        pass_names = [c.name for c in result.checks if c.status == Status.PASS]
-        assert "risk_classification" in pass_names
-        assert "blocking_policy" in pass_names
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
+        result = check_article_9(empty_scan)
+        for check in result.checks:
+            if check.recommendation:
+                assert "ConsentGate" not in check.recommendation
+                assert "AIR" not in check.recommendation
+                assert "AirTrust" not in check.recommendation
 
 
 class TestArticle10:
@@ -70,16 +89,16 @@ class TestArticle10:
         result = check_article_10(full_scan)
         assert result.status == Status.PASS
 
-    def test_has_three_checks(self, empty_scan):
+    def test_has_four_checks(self, empty_scan):
         result = check_article_10(empty_scan)
-        assert len(result.checks) == 5
+        assert len(result.checks) == 4
 
-    def test_vault_without_patterns_warns(self):
-        scan = ScanResult(has_data_vault=True)
-        result = check_article_10(scan)
-        # PII tokenization passes, data_minimization passes (defaults active)
-        pii = [c for c in result.checks if c.name == "pii_tokenization"][0]
-        assert pii.status == Status.PASS
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
+        result = check_article_10(empty_scan)
+        for check in result.checks:
+            if check.recommendation:
+                assert "DataVault" not in check.recommendation
+                assert "AIR" not in check.recommendation
 
 
 class TestArticle11:
@@ -93,7 +112,14 @@ class TestArticle11:
 
     def test_has_three_checks(self, empty_scan):
         result = check_article_11(empty_scan)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 3
+
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
+        result = check_article_11(empty_scan)
+        for check in result.checks:
+            if check.recommendation:
+                assert "AuditLedger" not in check.recommendation
+                assert "AIR" not in check.recommendation
 
 
 class TestArticle12:
@@ -107,14 +133,14 @@ class TestArticle12:
 
     def test_has_four_checks(self, empty_scan):
         result = check_article_12(empty_scan)
-        assert len(result.checks) == 5
+        assert len(result.checks) == 4
 
-    def test_tamper_evident_is_critical(self, empty_scan):
-        """HMAC chain is the killer feature — should fail without it."""
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
         result = check_article_12(empty_scan)
-        chain = [c for c in result.checks if c.name == "tamper_evident_chain"][0]
-        assert chain.status == Status.FAIL
-        assert "CRITICAL" in chain.recommendation
+        for check in result.checks:
+            if check.recommendation:
+                assert "AuditLedger" not in check.recommendation
+                assert "AIR" not in check.recommendation
 
 
 class TestArticle14:
@@ -126,9 +152,16 @@ class TestArticle14:
         result = check_article_14(full_scan)
         assert result.status == Status.PASS
 
-    def test_has_four_checks(self, empty_scan):
+    def test_has_three_checks(self, empty_scan):
         result = check_article_14(empty_scan)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 3
+
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
+        result = check_article_14(empty_scan)
+        for check in result.checks:
+            if check.recommendation:
+                assert "ConsentGate" not in check.recommendation
+                assert "AIR" not in check.recommendation
 
 
 class TestArticle15:
@@ -140,29 +173,16 @@ class TestArticle15:
         result = check_article_15(full_scan)
         assert result.status == Status.PASS
 
-    def test_has_four_checks(self, empty_scan):
+    def test_has_five_checks(self, empty_scan):
         result = check_article_15(empty_scan)
-        assert len(result.checks) == 6
+        assert len(result.checks) == 5
 
-    def test_defense_in_depth_counts_layers(self):
-        # 2 layers = WARN
-        scan = ScanResult(has_injection_detector=True, has_audit_ledger=True)
-        result = check_article_15(scan)
-        did = [c for c in result.checks if c.name == "defense_in_depth"][0]
-        assert did.status == Status.WARN
-        assert "2/4" in did.description
-
-        # 3 layers = PASS
-        scan = ScanResult(has_injection_detector=True, has_audit_ledger=True, has_consent_gate=True)
-        result = check_article_15(scan)
-        did = [c for c in result.checks if c.name == "defense_in_depth"][0]
-        assert did.status == Status.PASS
-
-    def test_single_layer_fails(self):
-        scan = ScanResult(has_audit_ledger=True)
-        result = check_article_15(scan)
-        did = [c for c in result.checks if c.name == "defense_in_depth"][0]
-        assert did.status == Status.FAIL
+    def test_recommendations_are_tool_agnostic(self, empty_scan):
+        result = check_article_15(empty_scan)
+        for check in result.checks:
+            if check.recommendation:
+                assert "InjectionDetector" not in check.recommendation
+                assert "AIR" not in check.recommendation
 
 
 class TestAllCheckers:
@@ -180,3 +200,18 @@ class TestAllCheckers:
         for checker in ALL_CHECKERS:
             result = checker(full_scan)
             assert result.status == Status.PASS, f"{result.article} failed"
+
+    def test_no_air_blackbox_references(self, empty_scan):
+        """Ensure no recommendations reference AIR Blackbox products."""
+        for checker in ALL_CHECKERS:
+            result = checker(empty_scan)
+            for check in result.checks:
+                if check.recommendation:
+                    assert "ConsentGate" not in check.recommendation
+                    assert "DataVault" not in check.recommendation
+                    assert "AuditLedger" not in check.recommendation
+                    assert "InjectionDetector" not in check.recommendation
+                    assert "AirTrust" not in check.recommendation
+                    assert "air-langchain" not in check.recommendation
+                    assert "air-crewai" not in check.recommendation
+                    assert "air-rag" not in check.recommendation
